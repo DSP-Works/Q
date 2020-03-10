@@ -9,10 +9,8 @@
 #include <q/support/literals.hpp>
 #include <algorithm>
 
-namespace cycfi { namespace q
+namespace cycfi::q
 {
-   using namespace q::literals;
-
    ////////////////////////////////////////////////////////////////////////////
    // The envelope follower will follow the envelope of a signal with gradual
    // release (given by the release parameter). The signal decays
@@ -27,7 +25,6 @@ namespace cycfi { namespace q
 
       float operator()(float s)
       {
-         s = std::abs(s);
          return y = s + ((s > y)? _attack : _release) * (y - s);
       }
 
@@ -112,16 +109,17 @@ namespace cycfi { namespace q
        : _reset((float(hold) * sps))
       {}
 
+      fast_envelope_follower(std::size_t hold_samples)
+       : _reset(hold_samples)
+      {}
+
       float operator()(float s)
       {
-         if (s > _peak)
-            _peak = s;
-
-         // Get the peak and hold it in _y1 and _y2
-         if (_peak > _y1)
-            _y1 = _peak;
-         if (_peak > _y2)
-            _y2 = _peak;
+         // Update _y1 and _y2
+         if (s > _y1)
+            _y1 = s;
+         if (s > _y2)
+            _y2 = s;
 
          // Reset _y1 and _y2 alternately every so often (the hold parameter)
          if (_tick++ == _reset)
@@ -135,7 +133,6 @@ namespace cycfi { namespace q
 
          // The peak is the maximum of _y1 and _y2
          _latest = std::max(_y1, _y2);
-         _peak = 0;
          return _latest;
       }
 
@@ -144,91 +141,10 @@ namespace cycfi { namespace q
          return _latest;
       }
 
-      float _y1 = 0, _y2 = 0, _peak = 0, _latest = 0;
+      float _y1 = 0, _y2 = 0, _latest = 0;
       std::uint16_t _tick = 0, _i = 0;
       std::uint16_t const _reset;
    };
-
-   ////////////////////////////////////////////////////////////////////////////
-   // envelope_shaper is an envelope processor that allows control of the
-   // envelope's attack, decay and release parameters. Take note that the
-   // envelope_shaper is a processor and does not synthesize an envelope. It
-   // takes in an envelope and processes it to increase (but not decrease)
-   // attack, decay and release.
-   ////////////////////////////////////////////////////////////////////////////
-   struct envelope_shaper
-   {
-      static constexpr float hysteresis = 0.0001; // -80dB
-
-      envelope_shaper(
-         duration attack
-       , duration decay
-       , duration release
-       , decibel release_threshold
-       , std::uint32_t sps
-      ) : envelope_shaper(
-         fast_exp3(-2.0f / (sps * double(attack)))
-       , fast_exp3(-2.0f / (sps * double(decay)))
-       , fast_exp3(-2.0f / (sps * double(release)))
-       , double(release_threshold))
-      {}
-
-      envelope_shaper(
-         float attack
-       , float decay
-       , float release
-       , float release_threshold
-      )
-       : _attack(attack)
-       , _decay(decay)
-       , _release(release)
-       , _release_threshold(release_threshold)
-      {}
-
-      float operator()(float s)
-      {
-         if (y < _peak || s > y) // upward
-         {
-            if (_peak < s)
-               _peak = s;
-            auto target = 1.6f * s;
-            y = target + _attack * (y - target);
-            if (y > _peak)
-               _peak = 0;
-         }
-         else
-         {
-            auto slope = (s < _release_threshold)? _release : _decay;
-            y = s + slope * (y - s);
-            if (y < hysteresis)
-               _peak = y = 0;
-         }
-         return y;
-      }
-
-      float operator()() const
-      {
-         return y;
-      }
-
-      void config(duration attack, duration decay, std::uint32_t sps)
-      {
-         _attack = fast_exp3(-2.0f / (sps * double(attack)));
-         _decay = fast_exp3(-2.0f / (sps * double(decay)));
-      }
-
-      void attack(float attack_, std::uint32_t sps)
-      {
-         _attack = fast_exp3(-2.0f / (sps * attack_));
-      }
-
-      void release(float release_, std::uint32_t sps)
-      {
-         _decay = fast_exp3(-2.0f / (sps * release_));
-      }
-
-      float y = 0, _peak = 0, _attack, _decay, _release, _release_threshold;
-   };
-}}
+}
 
 #endif

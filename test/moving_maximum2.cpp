@@ -5,7 +5,7 @@
 =============================================================================*/
 #include <q/support/literals.hpp>
 #include <q_io/audio_file.hpp>
-#include <q/fx/moving_average.hpp>
+#include <q/fx/moving_maximum.hpp>
 #include <vector>
 #include <string>
 #include "notes.hpp"
@@ -18,16 +18,10 @@ void process(
    std::string name, std::vector<float> const& in
  , std::uint32_t sps, std::size_t n)
 {
-   auto max_val = *std::max_element(in.begin(), in.end(),
-      [](auto a, auto b) { return std::abs(a) < std::abs(b); }
-   );
-
-   constexpr auto n_channels = 4;
+   constexpr auto n_channels = 2;
    std::vector<float> out(in.size() * n_channels);
 
-   auto ma1 = q::moving_average<float>{ n };
-   auto ma2 = q::moving_average<float>{ n };
-   auto ma3 = q::moving_average<float>{ n };
+   auto mmax = q::moving_maximum<float>{ n };
 
    for (auto i = 0; i != in.size(); ++i)
    {
@@ -39,22 +33,18 @@ void process(
 
       auto s = in[i];
 
-      // Normalize
-      s *= 1.0 / max_val;
-
       // Original signal
       out[ch1] = s;
 
-      out[ch2] = ma1(s);
-      out[ch3] = ma2(out[ch2]);
-      out[ch4] = ma3(out[ch3]);
+      // Peak
+      out[ch2] = mmax(s);
    }
 
    ////////////////////////////////////////////////////////////////////////////
    // Write to a wav file
 
    q::wav_writer wav(
-      "results/moving_average_" + name + ".wav", n_channels, sps
+      "results/moving_maximum_" + name + ".wav", n_channels, sps
    );
    wav.write(out);
 }
@@ -72,8 +62,8 @@ void process(std::string name, q::frequency f)
 
    ////////////////////////////////////////////////////////////////////////////
    auto period = f.period();
-   std::size_t n = (float(period) * sps) / 16;
-   process(name, in, sps, cycfi::smallest_pow2(n));
+   std::size_t n = float(period) * sps;
+   process(name, in, sps, n * 1.1);
 }
 
 int main()

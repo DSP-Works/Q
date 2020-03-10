@@ -10,7 +10,7 @@
 #include <q/support/decibel.hpp>
 #include <q/fx/envelope.hpp>
 
-namespace cycfi { namespace q
+namespace cycfi::q
 {
    ////////////////////////////////////////////////////////////////////////////
    // The output of a simple comparator is determined by its inputs. The
@@ -151,9 +151,14 @@ namespace cycfi { namespace q
          return _cmp(s, env * _sensitivity);
       }
 
+      bool operator()() const
+      {
+         return _cmp();
+      }
+
       float const       _sensitivity;
       schmitt_trigger   _cmp;
    };
-}}
+}
 
 #endif

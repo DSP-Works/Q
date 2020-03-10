@@ -9,7 +9,7 @@
 #include <q/support/base.hpp>
 #include <q/utility/ring_buffer.hpp>
 
-namespace cycfi { namespace q
+namespace cycfi::q
 {
    ////////////////////////////////////////////////////////////////////////////
    // The moving average is the simplest and most efficient FIR filter. It is
@@ -21,35 +21,46 @@ namespace cycfi { namespace q
    // while retaining a sharp step response.
    //
    // Averaging N samples (the moving average length) increases the SNR by
-   // the square root of N. For example, N=16 improves SNR by 4 (12dB).
-   // The filter delay is exactly (N−1)/2.
+   // the square root of N. For example, N=16 improves SNR by 4 (12dB). The
+   // filter delay is exactly (N−1)/2.
    //
    // This filter is implemented using a ring_buffer. The data type, T, is a
    // template parameter, allowing both floating point as well as integer
    // computations. Integers are typically faster than floating point and are
    // not prone to round-off errors.
    //
-   // Take note that the final result is not divided by the moving average
-   // length, N. Only the sum is returned, which gives the filter a gain of
-   // N. The fixed gain, N, can be compensated elsewhere. This makes the
-   // filter very fast, requiring only one addition and one subtraction per
-   // sample.
+   // Take note that the final result is optionally not divided by the moving
+   // average length, N if template parameter `div` is set to false. Only the
+   // sum is returned, which gives the filter a gain of N. The fixed gain, N,
+   // can be compensated elsewhere. This makes the filter very fast,
+   // requiring only one addition and one subtraction per sample. `div`
+   // defaults to true.
    ////////////////////////////////////////////////////////////////////////////
-   template <typename T>
+   template <typename T, bool div = true>
    struct moving_average
    {
-      moving_average(std::size_t n)
-       : _buff(n)
+      moving_average(std::size_t size)
+       : _buff(size)
+       , _size(size)
       {
          _buff.clear();
+      }
+
+      moving_average(duration d, std::size_t sps)
+       : moving_average(std::size_t(sps * float(d)))
+      {
       }
 
       T operator()(T s)
       {
          _sum += s;              // Add the latest sample to the sum
-         _sum -= _buff.back();   // Subtract the oldest sample from the sum
+         _sum -= _buff[_size-1]; // Subtract the oldest sample from the sum
          _buff.push(s);          // Push the latest sample, erasing the oldest
-         return _sum;            // Return the sum (gain == n)
+
+         if constexpr (div)
+            return _sum / _size; // Return the average
+         else
+            return _sum;         // Return the sum (gain == size)
       }
 
       T operator()() const
@@ -57,10 +68,16 @@ namespace cycfi { namespace q
          return _sum;
       }
 
+      std::size_t size() const
+      {
+         return _size;
+      }
+
       using buffer = ring_buffer<T>;
       using accumulator = decltype(promote(T()));
 
       buffer      _buff = buffer{};
+      std::size_t _size;
       accumulator _sum = 0;
    };
 
@@ -106,6 +123,6 @@ namespace cycfi { namespace q
 
       float y = 0.0f;
    };
-}}
+}
 
 #endif

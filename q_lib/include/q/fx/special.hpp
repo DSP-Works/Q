@@ -11,10 +11,8 @@
 #include <q/fx/allpass.hpp>
 #include <q/fx/delay.hpp>
 
-namespace cycfi { namespace q
+namespace cycfi::q
 {
-	using namespace literals;
-
    ////////////////////////////////////////////////////////////////////////////
    // Map the input, s (with expected value 0 to 1) to y1 to y2 using linear
    // interpolation. Example: if the range (y1, y2) is (0.5, 0.8), the input
@@ -163,6 +161,41 @@ namespace cycfi { namespace q
    };
 
    ////////////////////////////////////////////////////////////////////////////
+   // crossfade smoothly fades-in and fades-out two signals, `a` and `b`,
+   // when a control argument, `ctrl`, falls below a given `pivot`. If `ctrl`
+   // is above the pivot (e.g. -10dB) the gain of `a` is 1.0 and the gain of
+   // `b` is 0.0. if `ctrl` falls below the pivot (e.g. -10dB), `a` fades-out
+   // while `b` fades-in smoothly by (ctrl - pivot) decibels.
+   //
+   // For example, if `pivot` is -10dB, and `ctrl` is -13dB, the gain of `a`
+   // is 0.708 (-3dB == -10dB - -13dB) and the gain of `b` is 0.3 (1.0 -
+   // 0.708).
+   ////////////////////////////////////////////////////////////////////////////
+   struct crossfade
+   {
+      constexpr crossfade(decibel pivot)
+       : _pivot(pivot)
+      {}
+
+      float operator()(float a, float b, decibel ctrl)
+      {
+         if (ctrl < _pivot)
+         {
+            auto xfade = float(ctrl - _pivot);
+            return xfade * a + (1.0 - xfade) * b;
+         }
+         return a;
+      }
+
+      void pivot(decibel pivot_)
+      {
+         _pivot = pivot_;
+      }
+
+      decibel  _pivot;
+   };
+
+   ////////////////////////////////////////////////////////////////////////////
    // dynamic_smoother based on Dynamic Smoothing Using Self Modulating Filter
    // by Andrew Simper, Cytomic, 2014, andy@cytomic.com
    //
@@ -244,6 +277,49 @@ namespace cycfi { namespace q
 
       delay1            _dly;
    };
-}}
+
+   ////////////////////////////////////////////////////////////////////////////
+   // monostable is a one shot pulse generator. A single pulse input
+   // generates a timed pulse of given duration.
+   ////////////////////////////////////////////////////////////////////////////
+   struct monostable
+   {
+      monostable(duration d, std::uint32_t sps)
+       : _n_samples(float(d) * sps)
+      {}
+
+      bool operator()(bool val)
+      {
+         if (_ticks == 0)
+         {
+            if (val)
+               _ticks = _n_samples;
+         }
+         else
+         {
+            --_ticks;
+         }
+         return _ticks != 0;
+      }
+
+      std::uint32_t  _n_samples;
+      std::uint32_t  _ticks = 0;
+   };
+
+   ////////////////////////////////////////////////////////////////////////////
+   // rising_edge detects rising edges (i.e returns 1 when the input
+   // transitions from 0 to 1).
+   ////////////////////////////////////////////////////////////////////////////
+   struct rising_edge
+   {
+      constexpr bool operator()(bool val)
+      {
+         auto r = val && (_state != val);
+         _state = val;
+         return r;
+      }
+      bool _state = 0;
+   };
+}
 
 #endif
