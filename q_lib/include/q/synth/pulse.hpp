@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -51,7 +51,7 @@ namespace cycfi::q
 
       constexpr float operator()(phase p, phase dt) const
       {
-         constexpr auto end = phase::max();
+         constexpr auto end = phase::end();
          auto r = p < _shift ? 1.0f : -1.0f;
 
          // Correct rising discontinuity

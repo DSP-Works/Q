@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -32,9 +32,9 @@ int main()
    auto square = q::basic_square;                  // Square synth
 
    // Moving average filters
-   auto ma1 = q::moving_average<float>{ 16 };
-   auto ma2 = q::moving_average<float>{ 16 };
-   auto ma3 = q::moving_average<float>{ 16 };
+   auto ma1 = q::moving_average{ 16 };
+   auto ma2 = q::moving_average{ 16 };
+   auto ma3 = q::moving_average{ 16 };
 
    for (auto i = 0; i != size; ++i, ph += incr)
    {

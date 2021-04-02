@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -30,15 +30,10 @@ void process(std::string name, q::duration hold)
    constexpr auto n_channels = 4;
    std::vector<float> out(src.length() * n_channels);
 
-   q::decibel  comp_threshold = -18_dB;
-   q::decibel  comp_width = 3_dB;
-   float       comp_slope = 1.0/4;
-   float       makeup_gain = 4;
-
    // Envelope
    auto fast = q::fast_envelope_follower{ hold, sps };
-   auto peak = q::peak_envelope_follower{ hold * 10, sps };
-   auto env = q::envelope_follower{ 2_ms, hold * 10, sps };
+   auto peak = q::peak_envelope_follower{ 2_s, sps };
+   auto env = q::envelope_follower{ 2_ms, 2_s, sps };
 
    for (auto i = 0; i != in.size(); ++i)
    {
@@ -76,14 +71,14 @@ int main()
 {
    using namespace notes;
 
-   process("1a-Low-E", low_e.period());
-   process("Tapping D", d.period());
-   process("Hammer-Pull High E", high_e.period());
-   process("Bend-Slide G", g.period());
-   process("GStaccato", g.period());
-   process("GLines1", g.period());
-   process("GLines2", g.period());
-   process("GLines3", g.period());
+   process("1a-Low-E", low_e.period() * 1.1);
+   process("Tapping D", d.period() * 1.1);
+   process("Hammer-Pull High E", high_e.period() * 1.1);
+   process("Bend-Slide G", g.period() * 1.1);
+   process("GStaccato", g.period() * 1.1);
+   process("GLines1", g.period() * 1.1);
+   process("GLines2", g.period() * 1.1);
+   process("GLines3", g.period() * 1.1);
 
    return 0;
 }

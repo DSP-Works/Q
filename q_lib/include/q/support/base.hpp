@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -183,6 +183,11 @@ namespace cycfi::q
    // abs_within
    ////////////////////////////////////////////////////////////////////////////
    inline bool abs_within(float a, float b, float eps)
+   {
+      return abs(a-b) <= eps;
+   }
+
+   inline bool abs_within(int a, int b, int eps)
    {
       return abs(a-b) <= eps;
    }

@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -25,9 +25,9 @@ void process(
    constexpr auto n_channels = 4;
    std::vector<float> out(in.size() * n_channels);
 
-   auto ma1 = q::moving_average<float>{ n };
-   auto ma2 = q::moving_average<float>{ n };
-   auto ma3 = q::moving_average<float>{ n };
+   auto ma1 = q::moving_average{ n };
+   auto ma2 = q::moving_average{ n };
+   auto ma3 = q::moving_average{ n };
 
    for (auto i = 0; i != in.size(); ++i)
    {
@@ -80,6 +80,7 @@ int main()
 {
    process("1a-Low-E", low_e);
    process("1b-Low-E-12th", low_e);
+   process("1c-Low-E-24th", low_e);
    process("Tapping D", d);
    process("Hammer-Pull High E", high_e);
    process("Bend-Slide G", g);

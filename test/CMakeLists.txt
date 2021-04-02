@@ -1,5 +1,5 @@
 ###############################################################################
-#  Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+#  Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 #
 #  Distributed under the Boost Software License, Version 1.0. (See accompanying
 #  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -14,7 +14,7 @@ project(q_test)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
       OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}-ftemplate-backtrace-limit=0")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftemplate-backtrace-limit=0")
 endif()
 
 set(APP_SOURCES
@@ -32,30 +32,32 @@ set(APP_SOURCES
    gen_saw.cpp
    gen_triangle.cpp
 
+   dynamics.cpp
    agc.cpp
    allpass.cpp
    biquad_lp.cpp
    envelope_follower.cpp
-   moving_average.cpp
+   rms_envelope_follower.cpp
+   moving_average1.cpp
    moving_average2.cpp
-   moving_maximum.cpp
+   moving_maximum1.cpp
    moving_maximum2.cpp
    comb.cpp
-   compressor_expander.cpp
+   compressor_expander1.cpp
    compressor_expander2.cpp
    compressor_ff_fb.cpp
    peak_detector.cpp
-   onset_detector.cpp
-   pitch_detector.cpp
    period_detector.cpp
-   pitch_detector_ex.cpp
+   pitch_detector1.cpp
+   pitch_detector2.cpp
+   dual_pitch_detector.cpp
    fft.cpp
 )
 
 foreach(testsourcefile ${APP_SOURCES})
    string(REPLACE ".cpp" "" testname ${testsourcefile})
    add_executable(test_${testname} ${testsourcefile})
-   target_link_libraries(test_${testname} libq libqio infra)
+   target_link_libraries(test_${testname} libq libqio)
 endforeach(testsourcefile ${APP_SOURCES})
 
 # Copy test files to the binary dir
@@ -66,4 +68,9 @@ file(
 # Copy results folder to the binary dir
 file(
   COPY results
+  DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+# Copy golden folder to the binary dir
+file(
+  COPY golden
   DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

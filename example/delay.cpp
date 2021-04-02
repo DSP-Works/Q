@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -63,7 +63,7 @@ int main()
    if (proc.is_valid())
    {
       proc.start();
-      q::sleep(wav.length() / wav.sps());
+      q::sleep(q::duration(wav.length()) / wav.sps());
       proc.stop();
    }
 

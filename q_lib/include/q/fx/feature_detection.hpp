@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -93,6 +93,18 @@ namespace cycfi::q
       {
          y = y_;
          return *this;
+      }
+
+      void threshold(float low, float high)
+      {
+         _low = low;
+         _high = high;
+      }
+
+      void threshold(decibel low, decibel high)
+      {
+         _low = float(low);
+         _high = float(high);
       }
 
       float _low, _high;

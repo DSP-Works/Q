@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -57,8 +57,6 @@ namespace cycfi::q
    {
    public:
 
-      static constexpr float pulse_height_diff = 0.8;
-      static constexpr float pulse_width_diff = 0.85;
       static constexpr auto undefined_edge = int_min<int>();
 
       struct info
@@ -69,7 +67,6 @@ namespace cycfi::q
          std::size_t       period(info const& next) const;
          float             fractional_period(info const& next) const;
          int               width() const;
-         bool              similar(info const& next) const;
 
          crossing_data     _crossing;
          float             _peak;
@@ -81,9 +78,6 @@ namespace cycfi::q
                            zero_crossing(decibel hysteresis, std::size_t window);
                            zero_crossing(zero_crossing const& rhs) = default;
                            zero_crossing(zero_crossing&& rhs) = default;
-
-      zero_crossing&       operator=(zero_crossing const& rhs) = default;
-      zero_crossing&       operator=(zero_crossing&& rhs) = default;
 
       std::size_t          num_edges() const;
       std::size_t          capacity() const;
@@ -104,14 +98,14 @@ namespace cycfi::q
       void                 shift(std::size_t n);
       void                 reset();
 
-      using info_storage = ring_buffer<info, std::array<info, 64>>;
+      using info_storage = ring_buffer<info>;
 
       float                _prev = 0.0f;
       float const          _hysteresis;
       bool                 _state = false;
-      info_storage         _info;
       std::size_t          _num_edges = 0;
       std::size_t const    _window_size;
+      info_storage         _info;
       std::size_t          _frame = 0;
       bool                 _ready = false;
       float                _peak_update = 0.0f;
@@ -125,13 +119,15 @@ namespace cycfi::q
    {
       inline std::size_t adjust_window_size(std::size_t window)
       {
-         return (window + bitset<>::value_size - 1) / bitset<>::value_size;
+         constexpr auto bits = bitset<>::value_size;
+         return std::max<std::size_t>(2, (window + bits - 1) / bits);
       }
    }
 
    inline zero_crossing::zero_crossing(decibel hysteresis, std::size_t window)
     : _hysteresis(-float(hysteresis))
     , _window_size(detail::adjust_window_size(window) * bitset<>::value_size)
+    , _info(_window_size / 2)
    {}
 
    inline void zero_crossing::info::update_peak(float s, std::size_t frame)
@@ -145,12 +141,6 @@ namespace cycfi::q
    {
       CYCFI_ASSERT(_leading_edge <= next._leading_edge, "Invalid order.");
       return next._leading_edge - _leading_edge;
-   }
-
-   inline bool zero_crossing::info::similar(info const& next) const
-   {
-      return rel_within(_peak, next._peak, 1.0f-pulse_height_diff) &&
-         rel_within(_width, next._width, 1.0f-pulse_width_diff);
    }
 
    inline float zero_crossing::info::fractional_period(info const& next) const
@@ -255,6 +245,9 @@ namespace cycfi::q
          if (_peak == 0.0f)
             _peak = _peak_update;
       }
+
+      if (_frame > _window_size * 2)
+         reset();
 
       _prev = s;
    }

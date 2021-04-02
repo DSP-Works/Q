@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -18,7 +18,7 @@ constexpr auto sps = 48000;
 int main()
 {
    ////////////////////////////////////////////////////////////////////////////
-   // Synthesize a 10-second band-limited basic_saw wave
+   // Synthesize a 10-second non-band-limited basic_saw wave
 
    constexpr auto size = sps * 10;
    constexpr auto n_channels = 1;

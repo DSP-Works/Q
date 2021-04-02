@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -12,7 +12,7 @@ namespace cycfi::q
 {
    constexpr float poly_blep(phase p, phase dt)
    {
-      constexpr auto end = phase::max();
+      constexpr auto end = phase::end();
 
       if (p < dt)
       {
@@ -32,7 +32,7 @@ namespace cycfi::q
 
    constexpr double poly_blamp(phase p, phase dt, float scale)
    {
-      constexpr auto end = phase::max();
+      constexpr auto end = phase::end();
 
       if (p < dt)
       {

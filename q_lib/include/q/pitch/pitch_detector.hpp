@@ -1,64 +1,61 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
 #if !defined(CYCFI_Q_PITCH_DETECTOR_HPP_MARCH_12_2018)
 #define CYCFI_Q_PITCH_DETECTOR_HPP_MARCH_12_2018
 
-#include <q/fx/moving_average.hpp>
-#include <q/fx/median.hpp>
+#include <q/support/literals.hpp>
 #include <q/pitch/period_detector.hpp>
-#include <array>
-#include <utility>
 
 namespace cycfi::q
 {
    ////////////////////////////////////////////////////////////////////////////
+   struct pitch_info
+   {
+      float frequency = 0.0;
+      float periodicity = 0.0;
+   };
+
    class pitch_detector
    {
    public:
 
-      static constexpr float  max_deviation = 0.90f;
-      static constexpr float  min_periodicity = 0.8f;
+      static constexpr float     onset_periodicity = 0.95f;
+      static constexpr float     min_periodicity = 0.90f;
+      static constexpr decibel   default_hysteresis = -40_dB;
 
                               pitch_detector(
                                  frequency lowest_freq
                                , frequency highest_freq
                                , std::uint32_t sps
-                               , decibel hysteresis
+                               , decibel hysteresis = default_hysteresis
                               );
 
-                              pitch_detector(pitch_detector const& rhs) = default;
-                              pitch_detector(pitch_detector&& rhs) = default;
-
-      pitch_detector&         operator=(pitch_detector const& rhs) = default;
-      pitch_detector&         operator=(pitch_detector&& rhs) = default;
-
       bool                    operator()(float s);
-      float                   get_frequency() const         { return _frequency(); }
-      float                   predict_frequency() const;
-      bool                    is_note_onset() const;
-      bool                    frames_after_onset() const    { return _frames_after_onset; }
-      float                   periodicity() const;
-      void                    reset()                       { _frequency = 0.0f; }
+      pitch_info              get_current() const           { return _current; }
+      float                   get_frequency() const         { return _current.frequency; }
+      float                   get_periodicity() const       { return _current.periodicity; }
+      bool                    is_note_shift() const         { return _frames_after_shift == 0; }
+      std::size_t             frames_after_shift() const    { return _frames_after_shift; }
 
       bitset<> const&         bits() const                  { return _pd.bits(); }
       zero_crossing const&    edges() const                 { return _pd.edges(); }
+      period_detector const&  get_period_detector() const   { return _pd; }
+      float                   predict_frequency() const;
+      bool                    indeterminate() const         { return _current.frequency == 0.0f; }
 
    private:
 
       float                   calculate_frequency() const;
-      float                   bias(float current, float incoming, bool& shift);
-      void                    bias(float incoming);
-
-      using exp_moving_average_type = exp_moving_average<4>;
+      pitch_info              bias(pitch_info const& incoming, bool& shift) const;
+      void                    bias(pitch_info const& incoming);
 
       period_detector         _pd;
-      exp_moving_average_type _frequency;
-      median3                 _median;
+      pitch_info              _current;
       std::uint32_t           _sps;
-      std::size_t             _frames_after_onset = 0;
+      std::size_t             _frames_after_shift = 0;
    };
 
    ////////////////////////////////////////////////////////////////////////////
@@ -70,126 +67,81 @@ namespace cycfi::q
      , std::uint32_t sps
      , decibel hysteresis
    )
-     : _pd(lowest_freq, highest_freq, sps, hysteresis)
-     , _frequency(0.0f)
-     , _sps(sps)
+     : _pd{ lowest_freq, highest_freq, sps, hysteresis }
+     , _sps{ sps }
    {}
 
-   inline float pitch_detector::bias(float current, float incoming, bool& shift)
+   inline pitch_info pitch_detector::bias(pitch_info const& incoming, bool& shift) const
    {
-      auto error = current / 32;   // approx 1/2 semitone
-      auto diff = std::abs(current-incoming);
+      auto error = _current.frequency / 32; // approx 1/2 semitone
+      auto diff = std::abs(_current.frequency - incoming.frequency);
 
       // Try fundamental
       if (diff < error)
          return incoming;
 
-      if (_frames_after_onset > 1)
+      // Try harmonics and sub-harmonics
+      if (_frames_after_shift > 1)
       {
-         if (current > incoming)
+         if (_current.frequency > incoming.frequency)
          {
-            // is current the 5th harmonic of incoming?
-            auto f = incoming * 5;
-            if (std::abs(current-f) < error)
-               return f;
-
-            // is current the 4th harmonic of incoming?
-            f = incoming * 4;
-            if (std::abs(current-f) < error)
-               return f;
-
-            // is current the 3rd harmonic of incoming?
-            f = incoming * 3;
-            if (std::abs(current-f) < error)
-               return f;
-
-            // is current the 2nd harmonic of incoming?
-            f = incoming * 2;
-            if (std::abs(current-f) < error)
-               return f;
+            if (int multiple = std::round(_current.frequency / incoming.frequency); multiple > 1)
+            {
+               auto f = incoming.frequency * multiple;
+               if (std::abs(_current.frequency - f) < error)
+                  return { f, incoming.periodicity };
+            }
          }
          else
          {
-            // is incoming the 2nd harmonic of current?
-            auto f = incoming * (1.0f / 2);  // Note: favor multiplication over division
-            if (std::abs(current-f) < error)
-               return f;
-
-            // is incoming the 3rd harmonic of current?
-            f = incoming * (1.0f / 3);       // Note: favor multiplication over division
-            if (std::abs(current-f) < error)
-               return f;
+            if (int multiple = std::round(incoming.frequency / _current.frequency); multiple > 1)
+            {
+               auto f = incoming.frequency / multiple;
+               if (std::abs(_current.frequency - f) < error)
+                  return { f, incoming.periodicity };
+            }
          }
       }
 
       // Don't do anything if the latest autocorrelation is not periodic
-      // enough Note that we only do this check on frequency shifts (i.e. at
+      // enough. Note that we only do this check on frequency shifts (i.e. at
       // this point, we are looking at a potential frequency shift, after
       // passing through the code above, checking for fundamental and
-      // harmonic matches).
+      // harmonics and sub-harmonics matches).
       if (_pd.fundamental()._periodicity > min_periodicity)
       {
          // Now we have a frequency shift
          shift = true;
          return incoming;
       }
-      return current;
+      return _current;
    }
 
-   inline void pitch_detector::bias(float incoming)
+   inline void pitch_detector::bias(pitch_info const& incoming)
    {
-      auto current = _frequency();
-      ++_frames_after_onset;
+      ++_frames_after_shift;
       bool shift = false;
-      auto f = bias(current, incoming, shift);
+      auto result = bias(incoming, shift);
 
       // Don't do anything if incoming is not periodic enough
       // Note that we only do this check on frequency shifts
       if (shift)
       {
-         if (_pd.fundamental()._periodicity < max_deviation)
+         auto p = _pd.fundamental()._periodicity;
+         if (p >= onset_periodicity)
          {
-            // If we don't have enough confidence in the autocorrelation
-            // result, we'll try the zero-crossing edges to extract the
-            // frequency and the one closest to the current frequency wins.
-            bool shift2 = false;
-            auto predicted = predict_frequency();
-            if (predicted > 0.0f)
-            {
-               float f2 = bias(current, predicted, shift2);
-
-               // If there's no shift, the edges wins
-               if (!shift2)
-               {
-                  _frequency = _median(f2);
-               }
-               else // else, whichever is closest to the current frequency wins.
-               {
-                  _frequency(_median(
-                     (std::abs(current-f) < std::abs(current-f2))?
-                     f : f2
-                  ));
-               }
-            }
-            else
-            {
-               _frequency(_median(f));
-            }
+            _frames_after_shift = 0;
+            _current = result;
          }
-         else
+         else if (p < min_periodicity)
          {
-            // Now we have a frequency shift. Get the median of 3 (incoming
-            // frequency and last two frequency shifts) to eliminate abrupt
-            // changes. This will minimize potentially unwanted shifts.
-            // See https://en.wikipedia.org/wiki/Median_filter
-            _frequency = _median(incoming);
-            if (_frequency() == incoming)
-               _frames_after_onset = 0;
+            // Reset current
+            _current = pitch_info{};
          }
       }
       else
       {
-         _frequency(_median(f));
+         _current = result;
       }
    }
 
@@ -197,27 +149,39 @@ namespace cycfi::q
    {
       _pd(s);
 
+      // reset
+      if (_pd.is_reset())
+         _current = pitch_info{};   // Reset current
+
       if (_pd.is_ready())
       {
-         if (_frequency() == 0.0f)
+         if (_pd.fundamental()._periodicity == -1)
+         {
+            _current = pitch_info{};   // Force reset
+            return false;
+         }
+
+         auto p = _pd.fundamental()._periodicity;
+         if (_current.frequency == 0.0f)
          {
             // Disregard if we are not periodic enough
-            if (_pd.fundamental()._periodicity >= max_deviation)
+            if (p >= onset_periodicity)
             {
                auto f = calculate_frequency();
                if (f > 0.0f)
                {
-                  _median(f);       // Apply the median for the future
-                  _frequency = f;   // But assign outright now
-                  _frames_after_onset = 0;
+                  _current = { f, p };
+                  _frames_after_shift = 0;
                }
             }
          }
          else
          {
+            if (p < min_periodicity)
+               _frames_after_shift = 0;
             auto f = calculate_frequency();
             if (f > 0.0f)
-               bias(f);
+               bias({ f, p });
          }
       }
       return _pd.is_ready();
@@ -230,22 +194,11 @@ namespace cycfi::q
       return 0.0f;
    }
 
-   inline float pitch_detector::periodicity() const
-   {
-      return _pd.fundamental()._periodicity;
-   }
-
-   inline bool pitch_detector::is_note_onset() const
-   {
-      return _frames_after_onset == 0;
-   }
-
    inline float pitch_detector::predict_frequency() const
    {
-      auto period = _pd.predict_period();
-      if (period < _pd.minimum_period())
-         return 0.0f;
-      return _sps / period;
+      if (auto p = _pd.predict_period(); p != -1.0f)
+         return _sps / p;
+      return 0.0f;
    }
 }
 

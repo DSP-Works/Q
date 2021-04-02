@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -7,6 +7,9 @@
 #define CYCFI_Q_FX_ENVELOPE_HPP_MAY_17_2018
 
 #include <q/support/literals.hpp>
+#include <q/fx/moving_average.hpp>
+#include <q/fx/lowpass.hpp>
+#include <q/support/decibel.hpp>
 #include <algorithm>
 
 namespace cycfi::q
@@ -101,7 +104,12 @@ namespace cycfi::q
    // Based on http://tinyurl.com/yat2tuf8
    //
    // There is no filtering. The output is a jagged, staircase-like envelope.
-   // That way, this can be useful for analysis such as onset detection.
+   // That way, this can be useful for analysis such as onset detection. For
+   // monophonic signals, the hold duration should be longer than the period
+   // of the lowest frequency of the signal we wish to track. The hold
+   // parameter determines the staircase step duration. This staircase-like
+   // envelope can be effectively smoothed out using a moving average filter
+   // with the same duration as the hold parameter.
    ////////////////////////////////////////////////////////////////////////////
    struct fast_envelope_follower
    {
@@ -144,6 +152,54 @@ namespace cycfi::q
       float _y1 = 0, _y2 = 0, _latest = 0;
       std::uint16_t _tick = 0, _i = 0;
       std::uint16_t const _reset;
+   };
+
+   ////////////////////////////////////////////////////////////////////////////
+   // This rms envelope follower combines fast response, low ripple using
+   // moving RMS detection and the fast_envelope_follower for tracking the
+   // moving RMS as well as providing an output that is easy to filter using
+   // a moving average filter. Unlike other envelope followers in this
+   // header, this one works in the dB domain, which makes it easy to use as
+   // an envelope follower for dynamic range effects (compressor, expander,
+   // and agc) which also work in the dB domain.
+   //
+   // The signal path is as follows:
+   //    1. Square signal
+   //    2. Fast envelope follower
+   //    3. Moving average
+   //    4. Square root.
+   //
+   // Designed by Joel de Guzman (June 2020)
+   ////////////////////////////////////////////////////////////////////////////
+   struct fast_rms_envelope_follower
+   {
+      constexpr static auto threshold = float(-120_dB);
+
+      fast_rms_envelope_follower(duration hold, std::uint32_t sps)
+       : _fenv(hold, sps)
+       , _ma(hold, sps)
+      {
+      }
+
+      decibel operator()(float s)
+      {
+         auto e = _ma(_fenv(s * s));
+         if (e < threshold)
+            e = 0;
+
+         // Perform square-root in the dB domain:
+         _db = decibel{ e } / 2.0f;
+         return _db;
+      }
+
+      decibel operator()() const
+      {
+         return _db;
+      }
+
+      q::decibel              _db = 0_dB;
+      fast_envelope_follower  _fenv;
+      moving_average          _ma;
    };
 }
 

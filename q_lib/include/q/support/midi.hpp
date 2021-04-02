@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (C) 2012-2019 Joel de Guzman. All rights reserved.
+   Copyright (C) 2012-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -137,6 +137,14 @@ namespace cycfi::q::midi
 
    struct raw_message
    {
+      // raw data is the 24-bit data comprising a MIDI 1.0 message.
+      // The 24-bit MIDI data is encoded as little-endian:
+      //
+      // +--------|--------|--------|--------+
+      // |  MSB   |        |        |   LSB  |
+      // | unused | data-2 | data-1 | status |
+      // +--------|--------|--------|--------+
+
       std::uint32_t data;
    };
 
@@ -686,7 +694,7 @@ namespace cycfi::q::midi
    template <typename Processor>
    inline void dispatch(raw_message msg, std::size_t time, Processor&& proc)
    {
-      switch (msg.data & 0xFF) // status
+      switch (msg.data & 0xF0) // status
       {
          case status::note_off:
             proc(note_off{ msg }, time);

@@ -1,5 +1,5 @@
 /*=============================================================================
-   Copyright (c) 2014-2019 Joel de Guzman. All rights reserved.
+   Copyright (c) 2014-2020 Joel de Guzman. All rights reserved.
 
    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
 =============================================================================*/
@@ -34,6 +34,7 @@ namespace cycfi::q
    protected:
 
       wav_impl*      _wav;
+      bool           first_read;
    };
 
    ////////////////////////////////////////////////////////////////////////////
@@ -48,7 +49,10 @@ namespace cycfi::q
       wav_reader(char const* filename);
 
       std::size_t    length() const;
+      std::size_t    position();
       std::size_t    read(float* data, std::uint32_t len);
+      bool           restart();
+      bool           seek(std::uint64_t target);
 
                      template <typename Buffer>
       std::size_t    read(Buffer& buffer);
@@ -71,8 +75,11 @@ namespace cycfi::q
 
       using wav_reader::operator bool;
       using wav_reader::length;
+      using wav_reader::position;
       using wav_reader::sps;
       using wav_reader::num_channels;
+      using wav_reader::restart;
+      using wav_reader::seek;
 
       range const    operator()();
 
@@ -122,19 +129,18 @@ namespace cycfi::q
     : wav_reader(filename)
     , _buff(*this? buff_size * num_channels() : num_channels())
    {
-      if (*this)
-         read(_buff.data(), _buff.size());
-      else
+      if (!(*this))
          std::fill(_buff.begin(), _buff.end(), 0.0f);
-      _pos = _buff.begin();
+      first_read = false;
    }
 
    inline iterator_range<float const*> const wav_memory::operator()()
    {
       if (*this)
       {
-         if (_pos == _buff.end())
+         if (!first_read || (_pos + num_channels()) >= _buff.end())
          {
+            if (!first_read) first_read = true;
             auto read_len = read(_buff.data(), _buff.size());
             if (read_len == 0)
             {
@@ -147,8 +153,12 @@ namespace cycfi::q
             }
             _pos = _buff.begin();
          }
-         iterator_range<float const*> r{ &*_pos, &*(_pos + num_channels()) };
-         _pos +=  num_channels();
+         else
+         {
+            _pos += num_channels();
+         }
+         float const* p = &*_pos;
+         iterator_range<float const*> r{ p, p + num_channels() };
          return r;
       }
       else
