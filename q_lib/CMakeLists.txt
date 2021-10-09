@@ -1,5 +1,5 @@
 ###############################################################################
-#  Copyright (c) 2016-2020 Joel de Guzman. All rights reserved.
+#  Copyright (c) 2016-2021 Joel de Guzman. All rights reserved.
 #
 #  Distributed under the MIT License (https://opensource.org/licenses/MIT)
 ###############################################################################
@@ -53,6 +53,7 @@ set(Q_HEADERS
    ${CMAKE_CURRENT_SOURCE_DIR}/include/synth/sin.hpp
    ${CMAKE_CURRENT_SOURCE_DIR}/include/synth/square.hpp
    ${CMAKE_CURRENT_SOURCE_DIR}/include/synth/triangle.hpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/include/synth/noise.hpp
    ${CMAKE_CURRENT_SOURCE_DIR}/include/utility/antialiasing.hpp
    ${CMAKE_CURRENT_SOURCE_DIR}/include/utility/bitset.hpp
    ${CMAKE_CURRENT_SOURCE_DIR}/include/utility/bitstream_acf.hpp
